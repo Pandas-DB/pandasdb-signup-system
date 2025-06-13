@@ -11,8 +11,13 @@ import {
   AdminSetUserPasswordCommand,
   RespondToAuthChallengeCommand
 } from '@aws-sdk/client-cognito-identity-provider';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 
 const cognitoClient = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION
+});
+
+const snsClient = new SNSClient({
   region: process.env.AWS_REGION
 });
 
@@ -259,77 +264,64 @@ export const initiatePhoneAuth = async (event) => {
   try {
     const { phoneNumber } = JSON.parse(event.body);
 
-    // For passwordless auth, we need to use custom auth flow
-    // First, we'll use the phone number as username and trigger SMS
-    const command = new AdminInitiateAuthCommand({
-      UserPoolId: USER_POOL_ID,
-      ClientId: USER_POOL_CLIENT_ID,
-      AuthFlow: 'CUSTOM_AUTH',
-      AuthParameters: {
-        USERNAME: phoneNumber
-      }
-    });
-
-    const response = await cognitoClient.send(command);
-
-    return createResponse(200, {
-      message: 'SMS code sent',
-      session: response.Session,
-      challengeName: response.ChallengeName
-    });
-
-  } catch (error) {
-    // If user doesn't exist, create them first (phone-only signup)
-    if (error.name === 'UserNotFoundException') {
-      try {
-        // Create user with phone number only
-        const createCommand = new AdminCreateUserCommand({
-          UserPoolId: USER_POOL_ID,
-          Username: phoneNumber,
-          UserAttributes: [
-            {
-              Name: 'phone_number',
-              Value: phoneNumber
-            },
-            {
-              Name: 'phone_number_verified',
-              Value: 'true'
-            }
-          ],
-          MessageAction: 'SUPPRESS', // Don't send welcome email
-          TemporaryPassword: Math.random().toString(36).slice(-8) // Temp password
-        });
-
-        await cognitoClient.send(createCommand);
-
-        // Now initiate auth again
-        const authCommand = new AdminInitiateAuthCommand({
-          UserPoolId: USER_POOL_ID,
-          ClientId: USER_POOL_CLIENT_ID,
-          AuthFlow: 'CUSTOM_AUTH',
-          AuthParameters: {
-            USERNAME: phoneNumber
+    // Generate 6-digit verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store verification code (in a real app, use DynamoDB with TTL)
+    // For now, we'll use a simple approach with temporary password
+    const encodedPhone = phoneNumber.replace(/\+/g, 'PLUS').replace(/\s/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    
+    try {
+      // Create or update user with verification code as temporary password
+      const createCommand = new AdminCreateUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: encodedPhone,
+        UserAttributes: [
+          {
+            Name: 'email',
+            Value: `${encodedPhone}@phone.local`
+          },
+          {
+            Name: 'email_verified',
+            Value: 'true'
           }
-        });
+        ],
+        MessageAction: 'SUPPRESS',
+        TemporaryPassword: verificationCode + 'A!' // Store code in temp password
+      });
 
-        const authResponse = await cognitoClient.send(authCommand);
-
-        return createResponse(200, {
-          message: 'SMS code sent',
-          session: authResponse.Session,
-          challengeName: authResponse.ChallengeName,
-          newUser: true
+      await cognitoClient.send(createCommand);
+    } catch (createError) {
+      // User might exist, set new temporary password
+      if (createError.name === 'UsernameExistsException') {
+        const setPasswordCommand = new AdminSetUserPasswordCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: encodedPhone,
+          Password: verificationCode + 'A!',
+          Temporary: true
         });
-
-      } catch (createError) {
-        console.error('Create user error:', createError);
-        return createResponse(400, {
-          error: createError.name,
-          message: createError.message
-        });
+        await cognitoClient.send(setPasswordCommand);
       }
     }
 
+    // Send SMS via SNS
+    const smsCommand = new PublishCommand({
+      PhoneNumber: phoneNumber,
+      Message: `Your verification code is: ${verificationCode}`
+    });
+
+    await snsClient.send(smsCommand);
+
+    return createResponse(200, {
+      message: 'SMS code sent',
+      session: 'phone-auth-session',
+      codeDeliveryDetails: {
+        Destination: phoneNumber.replace(/(\d{3})\d{4}(\d{4})/, '$1***$2'),
+        DeliveryMedium: 'SMS'
+      }
+    });
+
+  } catch (error) {
     console.error('InitiatePhoneAuth error:', error);
     return createResponse(400, {
       error: error.name,
@@ -343,29 +335,47 @@ export const confirmPhoneAuth = async (event) => {
   try {
     const { phoneNumber, code, session } = JSON.parse(event.body);
 
-    const command = new RespondToAuthChallengeCommand({
+    // Encode phone number the same way as in initiate
+    const encodedPhone = phoneNumber.replace(/\+/g, 'PLUS').replace(/\s/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    
+    // Try to authenticate with the verification code as password
+    const signInCommand = new InitiateAuthCommand({
+      AuthFlow: 'USER_PASSWORD_AUTH',
       ClientId: USER_POOL_CLIENT_ID,
-      ChallengeName: 'CUSTOM_CHALLENGE',
-      Session: session,
-      ChallengeResponses: {
-        USERNAME: phoneNumber,
-        ANSWER: code
+      AuthParameters: {
+        USERNAME: encodedPhone,
+        PASSWORD: code + 'A!' // Code stored as temp password
       }
     });
 
-    const response = await cognitoClient.send(command);
+    const signInResponse = await cognitoClient.send(signInCommand);
 
-    if (response.AuthenticationResult) {
+    // If successful, set a permanent password to complete the flow
+    if (signInResponse.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+      const newPassword = Math.random().toString(36).slice(-12) + 'A1!';
+      
+      const newPasswordCommand = new RespondToAuthChallengeCommand({
+        ClientId: USER_POOL_CLIENT_ID,
+        ChallengeName: 'NEW_PASSWORD_REQUIRED',
+        Session: signInResponse.Session,
+        ChallengeResponses: {
+          USERNAME: encodedPhone,
+          NEW_PASSWORD: newPassword
+        }
+      });
+
+      const finalResponse = await cognitoClient.send(newPasswordCommand);
+      
       return createResponse(200, {
         message: 'Phone authentication successful',
-        authenticationResult: response.AuthenticationResult
-      });
-    } else {
-      return createResponse(400, {
-        error: 'InvalidCode',
-        message: 'Invalid verification code'
+        authenticationResult: finalResponse.AuthenticationResult
       });
     }
+
+    return createResponse(200, {
+      message: 'Phone authentication successful',
+      authenticationResult: signInResponse.AuthenticationResult
+    });
 
   } catch (error) {
     console.error('ConfirmPhoneAuth error:', error);
