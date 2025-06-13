@@ -9,14 +9,14 @@ provider:
   environment:
     USER_POOL_ID: !Ref CognitoUserPool
     USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
-    VERIFICATION_TYPE: ${opt:verification, 'email'}
+    AUTH_TYPE: ${env:AUTH_TYPE, 'email'}
   iamRoleStatements:
     - Effect: Allow
       Action:
         - cognito-idp:AdminInitiateAuth
         - cognito-idp:AdminCreateUser
         - cognito-idp:AdminSetUserPassword
-        - cognito-idp:RespondToAuthChallengeCommand
+        - cognito-idp:RespondToAuthChallenge
       Resource: !GetAtt CognitoUserPool.Arn
     - Effect: Allow
       Action:
@@ -27,6 +27,7 @@ plugins:
   - serverless-esbuild
 
 custom:
+  authType: ${env:AUTH_TYPE, 'email'}
   esbuild:
     bundle: true
     minify: true
@@ -96,10 +97,29 @@ functions:
           method: post
           cors: true
 
+  resendPhoneCode:
+    handler: src/handlers/auth.resendPhoneCode
+    events:
+      - http:
+          path: auth/phone/resend
+          method: post
+          cors: true
+
 resources:
+  Conditions:
+    IsEmailAuth: 
+      Fn::Equals: 
+        - ${self:custom.authType}
+        - 'email'
+    IsPhoneAuth:
+      Fn::Equals:
+        - ${self:custom.authType}
+        - 'phone'
+
   Resources:
     CognitoSNSRole:
       Type: AWS::IAM::Role
+      Condition: IsPhoneAuth
       Properties:
         AssumeRolePolicyDocument:
           Version: '2012-10-17'
@@ -124,11 +144,22 @@ resources:
     CognitoUserPool:
       Type: AWS::Cognito::UserPool
       Properties:
-        UserPoolName: ${self:service}-user-pool
+        UserPoolName: ${self:service}-${self:custom.authType}-user-pool
         AliasAttributes:
-          - email
+          Fn::If:
+            - IsEmailAuth
+            - [email]
+            - []
+        UsernameAttributes:
+          Fn::If:
+            - IsPhoneAuth
+            - [phone_number]
+            - !Ref AWS::NoValue
         AutoVerifiedAttributes:
-          - email
+          Fn::If:
+            - IsEmailAuth
+            - [email]
+            - [phone_number]
         Policies:
           PasswordPolicy:
             MinimumLength: 8
@@ -139,24 +170,41 @@ resources:
         MfaConfiguration: OFF
         AccountRecoverySetting:
           RecoveryMechanisms:
-            - Name: verified_email
-              Priority: 1
+            Fn::If:
+              - IsEmailAuth
+              - - Name: verified_email
+                  Priority: 1
+              - - Name: verified_phone_number
+                  Priority: 1
         UsernameConfiguration:
           CaseSensitive: false
+        EmailConfiguration:
+          Fn::If:
+            - IsEmailAuth
+            - EmailSendingAccount: COGNITO_DEFAULT
+            - !Ref AWS::NoValue
         SmsConfiguration:
-          SnsCallerArn: !GetAtt CognitoSNSRole.Arn
-          ExternalId: ${self:service}-external-id
+          Fn::If:
+            - IsPhoneAuth
+            - SnsCallerArn: !GetAtt CognitoSNSRole.Arn
+              ExternalId: ${self:service}-external-id
+            - !Ref AWS::NoValue
 
     CognitoUserPoolClient:
       Type: AWS::Cognito::UserPoolClient
       Properties:
-        ClientName: ${self:service}-client
+        ClientName: ${self:service}-${self:custom.authType}-client
         UserPoolId: !Ref CognitoUserPool
         ExplicitAuthFlows:
-          - ALLOW_USER_PASSWORD_AUTH
-          - ALLOW_USER_SRP_AUTH
-          - ALLOW_REFRESH_TOKEN_AUTH
-          - ALLOW_CUSTOM_AUTH
+          Fn::If:
+            - IsPhoneAuth
+            - - ALLOW_USER_PASSWORD_AUTH
+              - ALLOW_USER_SRP_AUTH
+              - ALLOW_REFRESH_TOKEN_AUTH
+              - ALLOW_CUSTOM_AUTH
+            - - ALLOW_USER_PASSWORD_AUTH
+              - ALLOW_USER_SRP_AUTH
+              - ALLOW_REFRESH_TOKEN_AUTH
         GenerateSecret: false
         PreventUserExistenceErrors: ENABLED
 
@@ -170,3 +218,8 @@ resources:
       Value: !Ref CognitoUserPoolClient
       Export:
         Name: ${self:service}-user-pool-client-id
+
+    AuthType:
+      Value: ${self:custom.authType}
+      Export:
+        Name: ${self:service}-auth-type

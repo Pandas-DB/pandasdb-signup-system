@@ -23,7 +23,7 @@ const snsClient = new SNSClient({
 
 const USER_POOL_CLIENT_ID = process.env.USER_POOL_CLIENT_ID;
 const USER_POOL_ID = process.env.USER_POOL_ID;
-const VERIFICATION_TYPE = process.env.VERIFICATION_TYPE;
+const AUTH_TYPE = process.env.AUTH_TYPE;
 
 const headers = {
   'Content-Type': 'application/json',
@@ -42,26 +42,18 @@ export const signUp = async (event) => {
   try {
     const { email, password, phoneNumber } = JSON.parse(event.body);
 
-    // Determine username and user attributes based on verification type
+    // Determine username and user attributes based on auth type
     let username, userAttributes = [];
 
-    if (VERIFICATION_TYPE === 'email' || VERIFICATION_TYPE === 'both') {
-      username = email;
+    if (AUTH_TYPE === 'email') {
+      // For email aliases, use a non-email username and put email in attributes
+      username = email.split('@')[0] + '_' + Date.now(); // e.g., "sergi.ortiz_1234567890"
       userAttributes.push({
         Name: 'email',
         Value: email
       });
-    }
-
-    if (VERIFICATION_TYPE === 'phone_number') {
+    } else if (AUTH_TYPE === 'phone') {
       username = phoneNumber;
-      userAttributes.push({
-        Name: 'phone_number',
-        Value: phoneNumber
-      });
-    }
-
-    if (VERIFICATION_TYPE === 'both' && phoneNumber) {
       userAttributes.push({
         Name: 'phone_number',
         Value: phoneNumber
@@ -97,9 +89,10 @@ export const signIn = async (event) => {
     const { email, password, phoneNumber } = JSON.parse(event.body);
 
     let username;
-    if (VERIFICATION_TYPE === 'email' || VERIFICATION_TYPE === 'both') {
+    if (AUTH_TYPE === 'email') {
+      // For email aliases, sign in with the email directly (Cognito handles the alias)
       username = email;
-    } else if (VERIFICATION_TYPE === 'phone_number') {
+    } else if (AUTH_TYPE === 'phone') {
       username = phoneNumber;
     }
 
@@ -135,9 +128,10 @@ export const confirmSignUp = async (event) => {
     const { email, phoneNumber, confirmationCode } = JSON.parse(event.body);
 
     let username;
-    if (VERIFICATION_TYPE === 'email' || VERIFICATION_TYPE === 'both') {
+    if (AUTH_TYPE === 'email') {
+      // For email confirmation, use the email (Cognito handles the alias)
       username = email;
-    } else if (VERIFICATION_TYPE === 'phone_number') {
+    } else if (AUTH_TYPE === 'phone') {
       username = phoneNumber;
     }
 
@@ -336,7 +330,7 @@ export const confirmPhoneAuth = async (event) => {
     const { phoneNumber, code, session } = JSON.parse(event.body);
 
     // Encode phone number the same way as in initiate
-    const encodedPhone = phoneNumber.replace(/\+/g, 'PLUS').replace(/\s/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    const encodedPhone = 'phone_' + phoneNumber.replace(/\+/g, '').replace(/\s/g, '').replace(/[^0-9]/g, '');
     
     // Try to authenticate with the verification code as password
     const signInCommand = new InitiateAuthCommand({
@@ -379,6 +373,51 @@ export const confirmPhoneAuth = async (event) => {
 
   } catch (error) {
     console.error('ConfirmPhoneAuth error:', error);
+    return createResponse(400, {
+      error: error.name,
+      message: error.message
+    });
+  }
+};
+
+// Resend phone verification code
+export const resendPhoneCode = async (event) => {
+  try {
+    const { phoneNumber } = JSON.parse(event.body);
+
+    // Generate new verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const encodedPhone = 'phone_' + phoneNumber.replace(/\+/g, '').replace(/\s/g, '').replace(/[^0-9]/g, '');
+    
+    // Update user's temporary password with new code
+    const setPasswordCommand = new AdminSetUserPasswordCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: encodedPhone,
+      Password: verificationCode + 'A!',
+      Temporary: true
+    });
+    
+    await cognitoClient.send(setPasswordCommand);
+
+    // Send new SMS
+    const smsCommand = new PublishCommand({
+      PhoneNumber: phoneNumber,
+      Message: `Your verification code is: ${verificationCode}`
+    });
+
+    await snsClient.send(smsCommand);
+
+    return createResponse(200, {
+      message: 'New SMS code sent',
+      codeDeliveryDetails: {
+        Destination: phoneNumber.replace(/(\d{3})\d{4}(\d{4})/, '$1***$2'),
+        DeliveryMedium: 'SMS'
+      }
+    });
+
+  } catch (error) {
+    console.error('ResendPhoneCode error:', error);
     return createResponse(400, {
       error: error.name,
       message: error.message

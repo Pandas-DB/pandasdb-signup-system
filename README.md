@@ -1,6 +1,6 @@
 # PandasDB Signup System
 
-A serverless authentication backend built with AWS Lambda, API Gateway, and Cognito. Supports configurable email and phone verification methods.
+A serverless authentication backend built with AWS Lambda, API Gateway, and Cognito. Deploy either **email-only** or **phone-only** authentication systems with a single command.
 
 ## 📁 Repository Structure
 
@@ -8,242 +8,305 @@ A serverless authentication backend built with AWS Lambda, API Gateway, and Cogn
 pandasdb-signup-system/
 ├── src/
 │   ├── handlers/
-│   │   └── auth.js              # Main authentication handlers
+│   │   └── auth.js              # Authentication handlers for both email and phone
 │   └── triggers/
-│       └── auth.js              # Cognito Lambda triggers for custom auth
+│       └── auth.js              # Cognito Lambda triggers (for future custom auth)
+├── frontend-example/            # Complete frontend testing interface
+│   ├── index.html               # Main HTML with both email and phone auth
+│   ├── css/styles.css           # Modern responsive styling
+│   ├── js/
+│   │   ├── auth.js              # Core authentication utilities
+│   │   ├── email-auth.js        # Email authentication flows
+│   │   └── phone-auth.js        # Phone authentication flows
+│   └── README.md                # Frontend documentation
 ├── serverless.yml               # Serverless framework configuration
-├── package.json                 # Dependencies and scripts
+├── package.json                 # Dependencies and deployment scripts
 ├── README.md                    # This file
 ├── .gitignore                   # Git ignore rules
 └── node_modules/                # Dependencies (after npm install)
 ```
 
-### File Descriptions
+## 🚀 **Choose Your Authentication Type**
 
-- **`src/handlers/auth.js`** - Core authentication logic (signup, signin, confirm, etc.)
-- **`src/triggers/auth.js`** - Lambda triggers for passwordless SMS authentication
-- **`serverless.yml`** - Infrastructure as Code (Cognito, Lambda, API Gateway)
-- **`package.json`** - Project dependencies and deployment scripts
+Deploy either email-based or phone-based authentication. Each deployment creates a focused, optimized system without conflicts.
 
-## Features
-
-- **Email Verification**: Traditional email-based signup and signin
-- **Phone Verification**: SMS-based signup and signin  
-- **Flexible Deployment**: Choose verification method at deploy time
-- **Complete Auth Flow**: Signup, signin, confirmation, password reset
-- **CORS Enabled**: Ready for frontend integration
-
-## Prerequisites
-
-- Node.js 18+
-- AWS CLI configured
-- Serverless Framework
-
-## Installation
-
-```bash
-npm install
-```
-
-## Deployment Options
-
-### Email Verification (Default)
+### **Email Authentication System**
 ```bash
 npm run deploy:email
-# or
-npm run deploy
 ```
 
-### Phone Verification
+**Features:**
+- Email signup with verification codes
+- Password-based signin
+- Email confirmation flow
+- Password reset via email
+- Resend verification codes
+
+**Endpoints:**
+- `POST /auth/signup` - Email signup
+- `POST /auth/signin` - Email signin
+- `POST /auth/confirm` - Email confirmation
+- `POST /auth/resend` - Resend email code
+- `POST /auth/forgot-password` - Password reset
+- `POST /auth/confirm-forgot-password` - Confirm reset
+
+### **Phone Authentication System**
 ```bash
 npm run deploy:phone
 ```
 
-### Both Email and Phone
+**Features:**
+- **Passwordless SMS authentication**
+- International phone number support
+- SMS verification codes via Amazon SNS
+- Auto-user creation on first login
+- Resend SMS functionality
+
+**Endpoints:**
+- `POST /auth/phone/initiate` - Send SMS verification code
+- `POST /auth/phone/confirm` - Verify SMS code & authenticate
+- `POST /auth/phone/resend` - Resend SMS code
+
+## 📋 Prerequisites
+
+- Node.js 18+
+- AWS CLI configured with appropriate permissions
+- Serverless Framework: `npm install -g serverless`
+
+## 🛠️ Installation
+
 ```bash
-npm run deploy:both
+# Clone and setup
+git clone <your-repo-url>
+cd pandasdb-signup-system
+
+# Install dependencies
+npm install
+
+# Deploy your chosen authentication system
+npm run deploy:email    # or npm run deploy:phone
 ```
 
-## API Endpoints
+## 📱 Frontend Testing
 
-All endpoints support CORS and expect JSON payloads.
+A complete frontend testing interface is included in `frontend-example/`:
 
-### POST /auth/signup
-Register a new user (traditional signup with password).
+```bash
+# Open the frontend
+cd frontend-example
+# Open index.html in your browser or serve with:
+python -m http.server 8000
+# Visit http://localhost:8000
+```
 
-**Email Mode:**
+**Frontend Features:**
+- ✅ **Responsive design** that works on desktop and mobile
+- ✅ **Real-time validation** with helpful error messages
+- ✅ **Auto-phone formatting** for international numbers
+- ✅ **Auto-submit** verification codes when 6 digits entered
+- ✅ **Tab switching** between email and phone authentication
+- ✅ **API configuration** panel for easy backend URL setup
+
+## 🔧 Configuration
+
+### **AWS Requirements**
+
+**For Email Authentication:**
+- Basic AWS account with Cognito permissions
+- No additional setup required
+
+**For Phone Authentication:**
+- AWS account with Cognito and SNS permissions
+- SMS spending limits configured in AWS Console
+- International SMS delivery enabled (if needed)
+
+### **Environment Configuration**
+
+The system automatically configures based on deployment type:
+- **Region**: `eu-west-1` (configurable in serverless.yml)
+- **Auth Type**: Set via deployment command
+- **Cognito**: Automatically configured for chosen auth type
+
+## 🌍 International Phone Support
+
+The phone authentication system supports international phone numbers:
+
+- **Format**: Use international format like `+34 633 66 83 96`
+- **Countries**: All countries supported by Amazon SNS
+- **Auto-formatting**: Frontend automatically formats phone inputs
+- **Validation**: Backend accepts and processes international formats
+
+## 🔄 Switching Between Systems
+
+To switch from one authentication type to another:
+
+```bash
+# Remove current system
+npm run remove
+
+# Deploy new system
+npm run deploy:phone  # or npm run deploy:email
+```
+
+**Note**: This will delete all existing users. In production, you'd want to migrate users between systems.
+
+## 📊 API Response Examples
+
+### **Email Signup Response**
 ```json
 {
-  "email": "user@example.com",
-  "password": "Password123"
+  "message": "User registered successfully",
+  "userSub": "uuid-here",
+  "codeDeliveryDetails": {
+    "Destination": "u***@e***.com",
+    "DeliveryMedium": "EMAIL"
+  }
 }
 ```
 
-**Phone Mode:**
-```json
-{
-  "phoneNumber": "+1234567890",
-  "password": "Password123"
-}
-```
-
-**Both Mode:**
-```json
-{
-  "email": "user@example.com",
-  "phoneNumber": "+1234567890",
-  "password": "Password123"
-}
-```
-
-### POST /auth/signin
-Sign in with email/password (traditional signin).
-
-**Request:**
-```json
-{
-  "email": "user@example.com", // or phoneNumber for phone mode
-  "password": "Password123"
-}
-```
-
-### POST /auth/phone/initiate
-**Passwordless phone authentication** - initiate SMS OTP (no password needed).
-
-**Request:**
-```json
-{
-  "phoneNumber": "+1234567890"
-}
-```
-
-**Response:**
+### **Phone Authentication Response**
 ```json
 {
   "message": "SMS code sent",
-  "session": "session-token",
-  "challengeName": "CUSTOM_CHALLENGE"
+  "session": "phone-auth-session",
+  "codeDeliveryDetails": {
+    "Destination": "+34***96",
+    "DeliveryMedium": "SMS"
+  }
 }
 ```
 
-### POST /auth/phone/confirm
-Complete passwordless phone authentication with SMS code.
-
-**Request:**
+### **Successful Authentication**
 ```json
 {
-  "phoneNumber": "+1234567890",
-  "code": "123456",
-  "session": "session-token-from-initiate"
+  "message": "Authentication successful",
+  "authenticationResult": {
+    "AccessToken": "jwt-access-token",
+    "RefreshToken": "jwt-refresh-token",
+    "IdToken": "jwt-id-token",
+    "ExpiresIn": 3600
+  }
 }
 ```
 
-### POST /auth/confirm
-Confirm user registration with verification code.
+## 🔒 Security Features
 
-**Request:**
-```json
-{
-  "email": "user@example.com", // or phoneNumber for phone mode
-  "confirmationCode": "123456"
-}
+- **Password Policy**: 8+ characters, uppercase, lowercase, numbers required
+- **JWT Tokens**: Secure token-based authentication
+- **CORS Enabled**: Ready for cross-origin frontend integration
+- **Rate Limiting**: Built-in AWS API Gateway rate limiting
+- **Input Validation**: Server-side validation for all inputs
+- **Error Handling**: Secure error messages without information leakage
+
+## 🛠️ Development
+
+### **View Logs**
+```bash
+npm run logs signUp
+npm run logs initiatePhoneAuth
 ```
 
-### POST /auth/resend
-Resend confirmation code.
-
-**Request:**
-```json
-{
-  "email": "user@example.com" // or phoneNumber for phone mode
-}
+### **Test Functions Locally**
+```bash
+npm run invoke signUp -- --data '{"body": "{\"email\":\"test@example.com\",\"password\":\"Test123\"}"}'
 ```
 
-### POST /auth/forgot-password
-Initiate password reset.
+### **Custom Configuration**
+Edit `serverless.yml` to customize:
+- AWS region
+- Password policies
+- Function timeouts
+- Memory allocation
 
-**Request:**
-```json
-{
-  "email": "user@example.com" // or phoneNumber for phone mode
-}
+## 🚀 Production Deployment
+
+### **Email System Production Checklist**
+- [ ] Configure custom domain for API
+- [ ] Set up SES for custom email sending (optional)
+- [ ] Configure CloudWatch alarms
+- [ ] Set up proper IAM roles
+- [ ] Enable AWS WAF for API protection
+
+### **Phone System Production Checklist**
+- [ ] Configure SMS spending limits in AWS Console
+- [ ] Set up international SMS delivery regions
+- [ ] Monitor SMS costs via CloudWatch
+- [ ] Configure phone number validation rules
+- [ ] Set up SMS delivery failure handling
+
+## 📈 Monitoring
+
+### **CloudWatch Metrics**
+- Lambda function duration and errors
+- API Gateway requests and latency
+- Cognito user pool metrics
+- SNS SMS delivery status (phone system)
+
+### **Useful CloudWatch Queries**
+```bash
+# View authentication errors
+aws logs filter-log-events --log-group-name /aws/lambda/pandasdb-signup-system-dev-signUp
+
+# Monitor SMS delivery
+aws logs filter-log-events --log-group-name /aws/lambda/pandasdb-signup-system-dev-initiatePhoneAuth
 ```
 
-### POST /auth/confirm-forgot-password
-Complete password reset.
-
-**Request:**
-```json
-{
-  "email": "user@example.com", // or phoneNumber for phone mode
-  "confirmationCode": "123456",
-  "newPassword": "NewPassword123"
-}
-```
-
-## Authentication Flows
-
-### 1. Traditional Email/Password Flow
-1. `POST /auth/signup` → User gets verification email
-2. `POST /auth/confirm` → User confirms with email code  
-3. `POST /auth/signin` → User signs in with email + password
-
-### 2. Traditional Phone/Password Flow  
-1. `POST /auth/signup` → User gets verification SMS
-2. `POST /auth/confirm` → User confirms with SMS code
-3. `POST /auth/signin` → User signs in with phone + password
-
-### 3. **Passwordless Phone Flow (SMS OTP)**
-1. `POST /auth/phone/initiate` → User enters phone, gets SMS code instantly
-2. `POST /auth/phone/confirm` → User enters SMS code, gets logged in
-
-**No password required!** Perfect for modern mobile-first apps.
-
-After deployment, use the API Gateway URL from the stack outputs. The Cognito User Pool ID and Client ID are also available in the outputs for direct SDK integration.
-
-**Example fetch:**
-```javascript
-const response = await fetch('https://your-api-id.execute-api.region.amazonaws.com/dev/auth/signup', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'Password123'
-  })
-});
-```
-
-## Environment Variables
-
-The following are automatically set during deployment:
-- `USER_POOL_ID`: Cognito User Pool ID
-- `USER_POOL_CLIENT_ID`: Cognito User Pool Client ID  
-- `VERIFICATION_TYPE`: email, phone_number, or both
-
-## Password Policy
-
-- Minimum 8 characters
-- Must contain uppercase letter
-- Must contain lowercase letter  
-- Must contain number
-- Symbols optional
-
-## Cleanup
+## 🧹 Cleanup
 
 ```bash
 npm run remove
 ```
 
-## Development
+This removes all AWS resources created by the deployment.
 
-View logs:
-```bash
-npm run logs signUp
+## 🔗 Integration Examples
+
+### **React Integration**
+```javascript
+const signUp = async (email, password) => {
+  const response = await fetch(`${API_URL}/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  return response.json();
+};
 ```
 
-Invoke function locally:
-```bash
-npm run invoke signUp -- --data '{"body": "{\"email\":\"test@example.com\",\"password\":\"Test123\"}"}'
+### **Phone Authentication**
+```javascript
+const initiatePhoneAuth = async (phoneNumber) => {
+  const response = await fetch(`${API_URL}/auth/phone/initiate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phoneNumber })
+  });
+  return response.json();
+};
 ```
+
+## 🎯 Use Cases
+
+### **Email Authentication Best For:**
+- Web applications
+- Traditional signup flows
+- Users comfortable with passwords
+- B2B applications
+- Desktop-first applications
+
+### **Phone Authentication Best For:**
+- Mobile applications
+- Quick onboarding flows
+- International users
+- Guest checkout processes
+- Modern consumer apps
+
+## 📞 Support
+
+- **Documentation**: Check this README and frontend-example/README.md
+- **AWS Documentation**: [Cognito](https://docs.aws.amazon.com/cognito/) and [SNS](https://docs.aws.amazon.com/sns/)
+- **Serverless Framework**: [Documentation](https://www.serverless.com/framework/docs/)
+
+## 🏷️ License
+
+MIT License - see LICENSE file for details.

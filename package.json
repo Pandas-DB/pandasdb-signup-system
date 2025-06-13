@@ -4,7 +4,9 @@
   "description": "Serverless authentication backend with AWS Cognito",
   "main": "index.js",
   "scripts": {
-    "deploy": "serverless deploy",
+    "deploy": "AUTH_TYPE=email serverless deploy",
+    "deploy:email": "AUTH_TYPE=email serverless deploy",
+    "deploy:phone": "AUTH_TYPE=phone serverless deploy",
     "remove": "serverless remove",
     "logs": "serverless logs -f",
     "invoke": "serverless invoke -f"
