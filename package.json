@@ -5,9 +5,6 @@
   "main": "index.js",
   "scripts": {
     "deploy": "serverless deploy",
-    "deploy:email": "serverless deploy --verification=email",
-    "deploy:phone": "serverless deploy --verification=phone_number",
-    "deploy:both": "serverless deploy --verification=both",
     "remove": "serverless remove",
     "logs": "serverless logs -f",
     "invoke": "serverless invoke -f"

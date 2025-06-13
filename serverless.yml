@@ -1,11 +1,11 @@
-service: enrike-auth-backend
+service: pandasdb-signup-system
 
 frameworkVersion: '3'
 
 provider:
   name: aws
   runtime: nodejs18.x
-  region: ${opt:region, 'us-east-1'}
+  region: eu-west-1
   environment:
     USER_POOL_ID: !Ref CognitoUserPool
     USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
@@ -84,16 +84,6 @@ functions:
           method: post
           cors: true
 
-  # Lambda triggers for custom auth (passwordless SMS)
-  createAuthChallenge:
-    handler: src/triggers/auth.createAuthChallenge
-
-  defineAuthChallenge:
-    handler: src/triggers/auth.defineAuthChallenge
-
-  verifyAuthChallengeResponse:
-    handler: src/triggers/auth.verifyAuthChallengeResponse
-
 resources:
   Resources:
     CognitoUserPool:
@@ -101,9 +91,9 @@ resources:
       Properties:
         UserPoolName: ${self:service}-user-pool
         AliasAttributes:
-          - ${self:custom.aliasAttributes.${opt:verification, 'email'}}
+          - email
         AutoVerifiedAttributes:
-          - ${opt:verification, 'email'}
+          - email
         Policies:
           PasswordPolicy:
             MinimumLength: 8
@@ -114,17 +104,13 @@ resources:
         MfaConfiguration: OFF
         AccountRecoverySetting:
           RecoveryMechanisms:
-            - Name: ${self:custom.recoveryMechanism.${opt:verification, 'email'}}
+            - Name: verified_email
               Priority: 1
         UsernameConfiguration:
           CaseSensitive: false
         UserAttributeUpdateSettings:
           AttributesRequireVerificationBeforeUpdate:
-            - ${opt:verification, 'email'}
-        LambdaConfig:
-          CreateAuthChallenge: !GetAtt CreateAuthChallengeLambdaFunction.Arn
-          DefineAuthChallenge: !GetAtt DefineAuthChallengeLambdaFunction.Arn
-          VerifyAuthChallengeResponse: !GetAtt VerifyAuthChallengeResponseLambdaFunction.Arn
+            - email
 
     CognitoUserPoolClient:
       Type: AWS::Cognito::UserPoolClient
@@ -132,11 +118,9 @@ resources:
         ClientName: ${self:service}-client
         UserPoolId: !Ref CognitoUserPool
         ExplicitAuthFlows:
-          - ADMIN_NO_SRP_AUTH
-          - USER_PASSWORD_AUTH
+          - ALLOW_USER_PASSWORD_AUTH
           - ALLOW_USER_SRP_AUTH
           - ALLOW_REFRESH_TOKEN_AUTH
-          - ALLOW_CUSTOM_AUTH
         GenerateSecret: false
         PreventUserExistenceErrors: ENABLED
 
@@ -150,44 +134,3 @@ resources:
       Value: !Ref CognitoUserPoolClient
       Export:
         Name: ${self:service}-user-pool-client-id
-
-    ApiGatewayUrl:
-      Value: !Sub "https://${RestApiApigEvent}.execute-api.${AWS::Region}.amazonaws.com/dev"
-      Export:
-        Name: ${self:service}-api-url
-
-    # Lambda permissions for Cognito triggers
-    CreateAuthChallengeLambdaPermission:
-      Type: AWS::Lambda::Permission
-      Properties:
-        FunctionName: !GetAtt CreateAuthChallengeLambdaFunction.Arn
-        Action: lambda:InvokeFunction
-        Principal: cognito-idp.amazonaws.com
-        SourceArn: !GetAtt CognitoUserPool.Arn
-
-    DefineAuthChallengeLambdaPermission:
-      Type: AWS::Lambda::Permission
-      Properties:
-        FunctionName: !GetAtt DefineAuthChallengeLambdaFunction.Arn
-        Action: lambda:InvokeFunction
-        Principal: cognito-idp.amazonaws.com
-        SourceArn: !GetAtt CognitoUserPool.Arn
-
-    VerifyAuthChallengeResponseLambdaPermission:
-      Type: AWS::Lambda::Permission
-      Properties:
-        FunctionName: !GetAtt VerifyAuthChallengeResponseLambdaFunction.Arn
-        Action: lambda:InvokeFunction
-        Principal: cognito-idp.amazonaws.com
-        SourceArn: !GetAtt CognitoUserPool.Arn
-
-  custom:
-    aliasAttributes:
-      email: email
-      phone: phone_number
-      both: email
-    
-    recoveryMechanism:
-      email: verified_email
-      phone: verified_phone_number
-      both: verified_email
