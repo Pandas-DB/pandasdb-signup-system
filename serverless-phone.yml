@@ -91,7 +91,7 @@ resources:
           PasswordPolicy:
             MinimumLength: 8
             RequireUppercase: true
-            RequireLowercase: true
+            RequireLowercase: false
             RequireNumbers: true
             RequireSymbols: false
         MfaConfiguration: OFF

@@ -29,10 +29,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Format phone number
-            const formattedPhone = formatPhoneNumber(phoneInput);
+            // Format phone number - clean it the same way as backend
+            const cleanPhone = phoneInput.replace(/\s/g, '').replace(/[^\+\d]/g, '');
+            console.log('Frontend: Original phone:', phoneInput);
+            console.log('Frontend: Cleaned phone:', cleanPhone);
             
-            if (formattedPhone.length < 10) {
+            if (cleanPhone.length < 10) {
                 showStatusMessage('Please enter a valid phone number', 'error');
                 return;
             }
@@ -40,22 +42,26 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 setButtonLoading('phone-signin-form', true);
                 
+                console.log('Frontend: Sending initiate request with phone:', cleanPhone);
                 const response = await authAPI.makeRequest('/auth/phone/initiate', {
                     method: 'POST',
                     body: JSON.stringify({
-                        phoneNumber: formattedPhone
+                        phoneNumber: cleanPhone
                     })
                 });
                 
+                console.log('Frontend: Initiate response:', response);
                 showStatusMessage('SMS code sent! Please check your messages.', 'success');
                 
                 // Store phone and session for verification
-                phoneAuthState.currentPhone = formattedPhone;
+                phoneAuthState.currentPhone = cleanPhone;
                 phoneAuthState.currentSession = response.session;
                 phoneAuthState.pendingVerification = true;
                 
+                console.log('Frontend: Stored phone state:', phoneAuthState);
+                
                 // Show verification form
-                document.getElementById('phone-verify-number').textContent = formattedPhone;
+                document.getElementById('phone-verify-number').textContent = cleanPhone;
                 showPhoneForm('verify');
                 
                 // Focus on verification code input
@@ -64,6 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 100);
                 
             } catch (error) {
+                console.error('Frontend: Initiate error:', error);
                 showStatusMessage(`Failed to send SMS: ${error.message}`, 'error');
             } finally {
                 setButtonLoading('phone-signin-form', false);
@@ -83,20 +90,28 @@ document.addEventListener('DOMContentLoaded', function() {
             const phoneNumber = phoneAuthState.currentPhone;
             const session = phoneAuthState.currentSession;
             
+            console.log('Frontend: Confirm attempt with:');
+            console.log('  - Phone:', phoneNumber);
+            console.log('  - Code:', verificationCode);
+            console.log('  - Session:', session);
+            console.log('  - Full state:', phoneAuthState);
+            
             if (!phoneNumber || !session) {
+                console.error('Frontend: Missing phone or session');
                 showStatusMessage('Session expired. Please request a new code.', 'error');
                 showPhoneForm('signin');
                 return;
             }
             
-            if (!verificationCode || verificationCode.length !== 6) {
-                showStatusMessage('Please enter the 6-digit verification code', 'error');
+            if (!verificationCode) {
+                showStatusMessage('Please enter the verification code', 'error');
                 return;
             }
             
             try {
                 setButtonLoading('phone-verify-form', true);
                 
+                console.log('Frontend: Sending confirm request...');
                 const response = await authAPI.makeRequest('/auth/phone/confirm', {
                     method: 'POST',
                     body: JSON.stringify({
@@ -106,11 +121,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                 });
                 
+                console.log('Frontend: Confirm response:', response);
+                
                 if (response.authenticationResult) {
                     // Successful authentication
                     authAPI.setAuthToken(response.authenticationResult.AccessToken);
                     
                     showStatusMessage('Signed in successfully!', 'success');
+                    console.log('Frontend: Authentication successful!');
                     
                     // Extract user info
                     const userInfo = {
@@ -128,18 +146,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     showDashboard(userInfo);
                     
                 } else {
+                    console.error('Frontend: No authentication result in response');
                     throw new Error('Authentication failed - no tokens received');
                 }
                 
             } catch (error) {
+                console.error('Frontend: Confirm error:', error);
+                console.error('Frontend: Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                
                 showStatusMessage(`Verification failed: ${error.message}`, 'error');
                 
                 // If code is invalid, stay on verification form
-                if (error.message.includes('Invalid') || error.message.includes('Code')) {
+                if (error.message.includes('Invalid') || error.message.includes('Code') || error.message.includes('Incorrect')) {
+                    console.log('Frontend: Invalid code, staying on verification form');
                     // Clear the input for retry
                     document.getElementById('phone-verification-code').value = '';
                     document.getElementById('phone-verification-code').focus();
                 } else {
+                    console.log('Frontend: Other error, going back to signin');
                     // For other errors, go back to phone input
                     showPhoneForm('signin');
                 }
@@ -154,6 +182,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function resendPhoneCode() {
     const phoneNumber = phoneAuthState.currentPhone;
     
+    console.log('Frontend: Resend requested for phone:', phoneNumber);
+    
     if (!phoneNumber) {
         showStatusMessage('Phone number not found. Please start over.', 'error');
         showPhoneForm('signin');
@@ -165,6 +195,7 @@ function resendPhoneCode() {
 
 async function initiatePhoneAuth(phoneNumber) {
     try {
+        console.log('Frontend: Resending SMS to:', phoneNumber);
         const response = await authAPI.makeRequest('/auth/phone/initiate', {
             method: 'POST',
             body: JSON.stringify({
@@ -172,6 +203,7 @@ async function initiatePhoneAuth(phoneNumber) {
             })
         });
         
+        console.log('Frontend: Resend response:', response);
         showStatusMessage('New SMS code sent! Please check your messages.', 'success');
         
         // Update session
@@ -182,37 +214,21 @@ async function initiatePhoneAuth(phoneNumber) {
         document.getElementById('phone-verification-code').focus();
         
     } catch (error) {
+        console.error('Frontend: Resend error:', error);
         showStatusMessage(`Failed to resend SMS: ${error.message}`, 'error');
     }
 }
 
-// Auto-format phone number input
+// Auto-format phone number input (simplified for better compatibility)
 document.addEventListener('DOMContentLoaded', function() {
     const phoneInput = document.getElementById('phone-signin-number');
     if (phoneInput) {
-        phoneInput.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-            
-            // Format as (XXX) XXX-XXXX for US numbers
-            if (value.length <= 10) {
-                if (value.length >= 6) {
-                    value = `(${value.slice(0, 3)}) ${value.slice(3, 6)}-${value.slice(6)}`;
-                } else if (value.length >= 3) {
-                    value = `(${value.slice(0, 3)}) ${value.slice(3)}`;
-                }
-            } else {
-                // International format - just add spaces
-                value = `+${value.slice(0, 1)} ${value.slice(1, 4)} ${value.slice(4, 7)} ${value.slice(7)}`;
-            }
-            
-            e.target.value = value;
-        });
-        
         phoneInput.addEventListener('blur', function(e) {
-            // On blur, format to international format
-            const formatted = formatPhoneNumber(e.target.value);
-            if (formatted !== e.target.value) {
-                e.target.value = formatted;
+            // Clean the phone number on blur
+            const cleaned = e.target.value.replace(/\s/g, '').replace(/[^\+\d]/g, '');
+            console.log('Frontend: Phone input cleaned:', e.target.value, '→', cleaned);
+            if (cleaned !== e.target.value) {
+                e.target.value = cleaned;
             }
         });
     }
@@ -226,14 +242,31 @@ document.addEventListener('DOMContentLoaded', function() {
             // Only allow digits
             e.target.value = e.target.value.replace(/\D/g, '');
             
-            // Auto-submit when 6 digits entered
+            console.log('Frontend: Code input:', e.target.value, 'Length:', e.target.value.length);
+            
+            // Auto-submit when 6 digits entered (more robust approach)
             if (e.target.value.length === 6) {
+                console.log('Frontend: Auto-submitting 6-digit code');
                 setTimeout(() => {
-                    const form = document.getElementById('phone-verify-form');
-                    if (form) {
-                        form.dispatchEvent(new Event('submit'));
+                    try {
+                        const form = document.getElementById('phone-verify-form');
+                        if (form) {
+                            // Use click on submit button instead of form.submit() to avoid extension conflicts
+                            const submitButton = form.querySelector('button[type="submit"]');
+                            if (submitButton) {
+                                console.log('Frontend: Clicking submit button');
+                                submitButton.click();
+                            } else {
+                                console.log('Frontend: No submit button found, dispatching submit event');
+                                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                            }
+                        } else {
+                            console.error('Frontend: Verify form not found');
+                        }
+                    } catch (error) {
+                        console.error('Frontend: Auto-submit error:', error);
                     }
-                }, 100);
+                }, 300); // Increased delay to avoid conflicts
             }
         });
         

@@ -36,49 +36,65 @@ export const initiatePhoneAuth = async (event) => {
   try {
     const { phoneNumber } = JSON.parse(event.body);
 
+    // Clean and format phone number: remove spaces, keep only + and digits
+    const cleanPhone = phoneNumber.replace(/\s/g, '').replace(/[^\+\d]/g, '');
+    
     // Generate 6-digit verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Store verification code (in a real app, use DynamoDB with TTL)
-    // For now, we'll use a simple approach with temporary password
-    const encodedPhone = phoneNumber.replace(/\+/g, 'PLUS').replace(/\s/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    // Use the cleaned phone number as username
+    const username = cleanPhone;
+    const tempPassword = verificationCode + 'A!';
+    
+    console.log(`Initiating phone auth:`);
+    console.log(`Original phone: ${phoneNumber}`);
+    console.log(`Cleaned phone: ${cleanPhone}`);
+    console.log(`Username (phone): ${username}`);
+    console.log(`Verification code: ${verificationCode}`);
+    console.log(`Temp password: ${tempPassword}`);
     
     try {
       // Create or update user with verification code as temporary password
       const createCommand = new AdminCreateUserCommand({
         UserPoolId: USER_POOL_ID,
-        Username: encodedPhone,
+        Username: username,
         UserAttributes: [
           {
-            Name: 'email',
-            Value: `${encodedPhone}@phone.local`
+            Name: 'phone_number',
+            Value: cleanPhone
           },
           {
-            Name: 'email_verified',
+            Name: 'phone_number_verified',
             Value: 'true'
           }
         ],
         MessageAction: 'SUPPRESS',
-        TemporaryPassword: verificationCode + 'A!' // Store code in temp password
+        TemporaryPassword: tempPassword
       });
 
       await cognitoClient.send(createCommand);
+      console.log(`User created with username: ${username}`);
     } catch (createError) {
       // User might exist, set new temporary password
       if (createError.name === 'UsernameExistsException') {
+        console.log(`User exists, updating password for: ${username}`);
         const setPasswordCommand = new AdminSetUserPasswordCommand({
           UserPoolId: USER_POOL_ID,
-          Username: encodedPhone,
-          Password: verificationCode + 'A!',
+          Username: username,
+          Password: tempPassword,
           Temporary: true
         });
         await cognitoClient.send(setPasswordCommand);
+        console.log(`Password updated for: ${username}`);
+      } else {
+        console.error('Create user error:', createError);
+        throw createError;
       }
     }
 
-    // Send SMS via SNS
+    // Send SMS via SNS using the cleaned phone number
     const smsCommand = new PublishCommand({
-      PhoneNumber: phoneNumber,
+      PhoneNumber: cleanPhone,
       Message: `Your verification code is: ${verificationCode}`
     });
 
@@ -88,7 +104,7 @@ export const initiatePhoneAuth = async (event) => {
       message: 'SMS code sent',
       session: 'phone-auth-session',
       codeDeliveryDetails: {
-        Destination: phoneNumber.replace(/(\d{3})\d{4}(\d{4})/, '$1***$2'),
+        Destination: cleanPhone.replace(/(\+\d{2})\d{3}(\d{2})(\d{2})/, '$1***$2$3'),
         DeliveryMedium: 'SMS'
       }
     });
@@ -107,16 +123,25 @@ export const confirmPhoneAuth = async (event) => {
   try {
     const { phoneNumber, code, session } = JSON.parse(event.body);
 
-    // Encode phone number the same way as in initiate
-    const encodedPhone = 'phone_' + phoneNumber.replace(/\+/g, '').replace(/\s/g, '').replace(/[^0-9]/g, '');
+    // Clean the phone number the same way as in initiate
+    const cleanPhone = phoneNumber.replace(/\s/g, '').replace(/[^\+\d]/g, '');
+    const username = cleanPhone;
+    const password = code + 'A!';
+    
+    console.log(`Attempting phone confirmation:`);
+    console.log(`Original phone: ${phoneNumber}`);
+    console.log(`Cleaned phone: ${cleanPhone}`);
+    console.log(`Username (phone): ${username}`);
+    console.log(`Code received: ${code}`);
+    console.log(`Password format: ${password}`);
     
     // Try to authenticate with the verification code as password
     const signInCommand = new InitiateAuthCommand({
       AuthFlow: 'USER_PASSWORD_AUTH',
       ClientId: USER_POOL_CLIENT_ID,
       AuthParameters: {
-        USERNAME: encodedPhone,
-        PASSWORD: code + 'A!' // Code stored as temp password
+        USERNAME: username,
+        PASSWORD: password
       }
     });
 
@@ -131,7 +156,7 @@ export const confirmPhoneAuth = async (event) => {
         ChallengeName: 'NEW_PASSWORD_REQUIRED',
         Session: signInResponse.Session,
         ChallengeResponses: {
-          USERNAME: encodedPhone,
+          USERNAME: username,
           NEW_PASSWORD: newPassword
         }
       });
@@ -163,16 +188,20 @@ export const resendPhoneCode = async (event) => {
   try {
     const { phoneNumber } = JSON.parse(event.body);
 
+    // Clean the phone number the same way
+    const cleanPhone = phoneNumber.replace(/\s/g, '').replace(/[^\+\d]/g, '');
+    
     // Generate new verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    const encodedPhone = 'phone_' + phoneNumber.replace(/\+/g, '').replace(/\s/g, '').replace(/[^0-9]/g, '');
+    // Use the cleaned phone number as username
+    const username = cleanPhone;
     
     // Update user's temporary password with new code
     const setPasswordCommand = new AdminSetUserPasswordCommand({
       UserPoolId: USER_POOL_ID,
-      Username: encodedPhone,
-      Password: verificationCode + 'A!',
+      Username: username,
+      Password: verificationCode + 'Aa!', // Match the password format
       Temporary: true
     });
     
@@ -180,7 +209,7 @@ export const resendPhoneCode = async (event) => {
 
     // Send new SMS
     const smsCommand = new PublishCommand({
-      PhoneNumber: phoneNumber,
+      PhoneNumber: cleanPhone,
       Message: `Your verification code is: ${verificationCode}`
     });
 
@@ -189,7 +218,7 @@ export const resendPhoneCode = async (event) => {
     return createResponse(200, {
       message: 'New SMS code sent',
       codeDeliveryDetails: {
-        Destination: phoneNumber.replace(/(\d{3})\d{4}(\d{4})/, '$1***$2'),
+        Destination: cleanPhone.replace(/(\+\d{2})\d{3}(\d{2})(\d{2})/, '$1***$2$3'),
         DeliveryMedium: 'SMS'
       }
     });
