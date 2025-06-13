@@ -161,9 +161,10 @@ export const resendConfirmationCode = async (event) => {
     const { email, phoneNumber } = JSON.parse(event.body);
 
     let username;
-    if (VERIFICATION_TYPE === 'email' || VERIFICATION_TYPE === 'both') {
+    if (AUTH_TYPE === 'email') {
+      // For email resend, use the email (Cognito handles the alias)
       username = email;
-    } else if (VERIFICATION_TYPE === 'phone_number') {
+    } else if (AUTH_TYPE === 'phone') {
       username = phoneNumber;
     }
 
@@ -193,9 +194,9 @@ export const forgotPassword = async (event) => {
     const { email, phoneNumber } = JSON.parse(event.body);
 
     let username;
-    if (VERIFICATION_TYPE === 'email' || VERIFICATION_TYPE === 'both') {
+    if (AUTH_TYPE === 'email') {
       username = email;
-    } else if (VERIFICATION_TYPE === 'phone_number') {
+    } else if (AUTH_TYPE === 'phone') {
       username = phoneNumber;
     }
 
@@ -225,9 +226,9 @@ export const confirmForgotPassword = async (event) => {
     const { email, phoneNumber, confirmationCode, newPassword } = JSON.parse(event.body);
 
     let username;
-    if (VERIFICATION_TYPE === 'email' || VERIFICATION_TYPE === 'both') {
+    if (AUTH_TYPE === 'email') {
       username = email;
-    } else if (VERIFICATION_TYPE === 'phone_number') {
+    } else if (AUTH_TYPE === 'phone') {
       username = phoneNumber;
     }
 
