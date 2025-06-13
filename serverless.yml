@@ -1,0 +1,193 @@
+service: enrike-auth-backend
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ${opt:region, 'us-east-1'}
+  environment:
+    USER_POOL_ID: !Ref CognitoUserPool
+    USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+    VERIFICATION_TYPE: ${opt:verification, 'email'}
+
+plugins:
+  - serverless-esbuild
+
+custom:
+  esbuild:
+    bundle: true
+    minify: true
+
+functions:
+  signUp:
+    handler: src/handlers/auth.signUp
+    events:
+      - http:
+          path: auth/signup
+          method: post
+          cors: true
+
+  signIn:
+    handler: src/handlers/auth.signIn
+    events:
+      - http:
+          path: auth/signin
+          method: post
+          cors: true
+
+  initiatePhoneAuth:
+    handler: src/handlers/auth.initiatePhoneAuth
+    events:
+      - http:
+          path: auth/phone/initiate
+          method: post
+          cors: true
+
+  confirmPhoneAuth:
+    handler: src/handlers/auth.confirmPhoneAuth
+    events:
+      - http:
+          path: auth/phone/confirm
+          method: post
+          cors: true
+
+  confirmSignUp:
+    handler: src/handlers/auth.confirmSignUp
+    events:
+      - http:
+          path: auth/confirm
+          method: post
+          cors: true
+
+  resendConfirmationCode:
+    handler: src/handlers/auth.resendConfirmationCode
+    events:
+      - http:
+          path: auth/resend
+          method: post
+          cors: true
+
+  forgotPassword:
+    handler: src/handlers/auth.forgotPassword
+    events:
+      - http:
+          path: auth/forgot-password
+          method: post
+          cors: true
+
+  confirmForgotPassword:
+    handler: src/handlers/auth.confirmForgotPassword
+    events:
+      - http:
+          path: auth/confirm-forgot-password
+          method: post
+          cors: true
+
+  # Lambda triggers for custom auth (passwordless SMS)
+  createAuthChallenge:
+    handler: src/triggers/auth.createAuthChallenge
+
+  defineAuthChallenge:
+    handler: src/triggers/auth.defineAuthChallenge
+
+  verifyAuthChallengeResponse:
+    handler: src/triggers/auth.verifyAuthChallengeResponse
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-user-pool
+        AliasAttributes:
+          - ${self:custom.aliasAttributes.${opt:verification, 'email'}}
+        AutoVerifiedAttributes:
+          - ${opt:verification, 'email'}
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+        MfaConfiguration: OFF
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Name: ${self:custom.recoveryMechanism.${opt:verification, 'email'}}
+              Priority: 1
+        UsernameConfiguration:
+          CaseSensitive: false
+        UserAttributeUpdateSettings:
+          AttributesRequireVerificationBeforeUpdate:
+            - ${opt:verification, 'email'}
+        LambdaConfig:
+          CreateAuthChallenge: !GetAtt CreateAuthChallengeLambdaFunction.Arn
+          DefineAuthChallenge: !GetAtt DefineAuthChallengeLambdaFunction.Arn
+          VerifyAuthChallengeResponse: !GetAtt VerifyAuthChallengeResponseLambdaFunction.Arn
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-client
+        UserPoolId: !Ref CognitoUserPool
+        ExplicitAuthFlows:
+          - ADMIN_NO_SRP_AUTH
+          - USER_PASSWORD_AUTH
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_CUSTOM_AUTH
+        GenerateSecret: false
+        PreventUserExistenceErrors: ENABLED
+
+  Outputs:
+    UserPoolId:
+      Value: !Ref CognitoUserPool
+      Export:
+        Name: ${self:service}-user-pool-id
+    
+    UserPoolClientId:
+      Value: !Ref CognitoUserPoolClient
+      Export:
+        Name: ${self:service}-user-pool-client-id
+
+    ApiGatewayUrl:
+      Value: !Sub "https://${RestApiApigEvent}.execute-api.${AWS::Region}.amazonaws.com/dev"
+      Export:
+        Name: ${self:service}-api-url
+
+    # Lambda permissions for Cognito triggers
+    CreateAuthChallengeLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt CreateAuthChallengeLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn: !GetAtt CognitoUserPool.Arn
+
+    DefineAuthChallengeLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt DefineAuthChallengeLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn: !GetAtt CognitoUserPool.Arn
+
+    VerifyAuthChallengeResponseLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt VerifyAuthChallengeResponseLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn: !GetAtt CognitoUserPool.Arn
+
+  custom:
+    aliasAttributes:
+      email: email
+      phone: phone_number
+      both: email
+    
+    recoveryMechanism:
+      email: verified_email
+      phone: verified_phone_number
+      both: verified_email

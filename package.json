@@ -1,0 +1,30 @@
+{
+  "name": "pandasdb-signup-system",
+  "version": "1.0.0",
+  "description": "Serverless authentication backend with AWS Cognito",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:email": "serverless deploy --verification=email",
+    "deploy:phone": "serverless deploy --verification=phone_number",
+    "deploy:both": "serverless deploy --verification=both",
+    "remove": "serverless remove",
+    "logs": "serverless logs -f",
+    "invoke": "serverless invoke -f"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.410.0"
+  },
+  "devDependencies": {
+    "serverless": "^3.34.0",
+    "serverless-esbuild": "^1.45.1"
+  },
+  "keywords": [
+    "serverless",
+    "aws",
+    "cognito",
+    "authentication"
+  ],
+  "author": "",
+  "license": "MIT"
+}
