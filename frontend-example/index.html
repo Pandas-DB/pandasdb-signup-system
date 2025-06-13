@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signup System - Authentication Demo</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Signup System</h1>
+            <nav>
+                <button id="email-tab" class="tab-button active" onclick="switchTab('email')">Email Auth</button>
+                <button id="phone-tab" class="tab-button" onclick="switchTab('phone')">Phone Auth</button>
+            </nav>
+        </header>
+
+        <!-- Email Authentication Section -->
+        <div id="email-auth" class="auth-section active">
+            <div class="auth-container">
+                <!-- Sign In Form -->
+                <div id="email-signin" class="auth-form active">
+                    <div class="form-header">
+                        <h2>Welcome back</h2>
+                        <p>Please enter your details to sign in</p>
+                    </div>
+
+                    <form id="email-signin-form">
+                        <div class="form-group">
+                            <label for="email-signin-email">Email address</label>
+                            <input type="email" id="email-signin-email" placeholder="you@example.com" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email-signin-password">Password</label>
+                            <div class="password-input">
+                                <input type="password" id="email-signin-password" placeholder="••••••••" required>
+                                <button type="button" class="toggle-password" onclick="togglePassword('email-signin-password')">👁</button>
+                            </div>
+                        </div>
+
+                        <div class="form-options">
+                            <label class="checkbox">
+                                <input type="checkbox" id="remember-me">
+                                <span>Remember me</span>
+                            </label>
+                            <a href="#" onclick="showEmailForm('forgot-password')">Forgot password?</a>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Sign in</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p>Don't have an account? <a href="#" onclick="showEmailForm('signup')">Sign up</a></p>
+                    </div>
+                </div>
+
+                <!-- Sign Up Form -->
+                <div id="email-signup" class="auth-form">
+                    <div class="form-header">
+                        <h2>Create your account</h2>
+                        <p>Get started with Signup System today</p>
+                    </div>
+
+                    <form id="email-signup-form">
+                        <div class="form-group">
+                            <label for="email-signup-email">Email address</label>
+                            <input type="email" id="email-signup-email" placeholder="you@example.com" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email-signup-password">Password</label>
+                            <div class="password-input">
+                                <input type="password" id="email-signup-password" placeholder="••••••••" required>
+                                <button type="button" class="toggle-password" onclick="togglePassword('email-signup-password')">👁</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email-confirm-password">Confirm password</label>
+                            <div class="password-input">
+                                <input type="password" id="email-confirm-password" placeholder="••••••••" required>
+                                <button type="button" class="toggle-password" onclick="togglePassword('email-confirm-password')">👁</button>
+                            </div>
+                        </div>
+
+                        <div class="form-options">
+                            <label class="checkbox">
+                                <input type="checkbox" id="agree-terms" required>
+                                <span>I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></span>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Create account</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p>Already have an account? <a href="#" onclick="showEmailForm('signin')">Sign in</a></p>
+                    </div>
+                </div>
+
+                <!-- Email Confirmation Form -->
+                <div id="email-confirm" class="auth-form">
+                    <div class="form-header">
+                        <h2>Check your email</h2>
+                        <p>We've sent a verification code to <span id="email-confirm-address"></span></p>
+                    </div>
+
+                    <form id="email-confirm-form">
+                        <div class="form-group">
+                            <label for="email-confirmation-code">Verification code</label>
+                            <input type="text" id="email-confirmation-code" placeholder="Enter 6-digit code" maxlength="6" required>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Verify email</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p>Didn't receive the code? <a href="#" onclick="resendEmailCode()">Resend</a></p>
+                        <p><a href="#" onclick="showEmailForm('signin')">← Back to sign in</a></p>
+                    </div>
+                </div>
+
+                <!-- Forgot Password Form -->
+                <div id="email-forgot-password" class="auth-form">
+                    <div class="form-header">
+                        <h2>Reset your password</h2>
+                        <p>Enter your email address and we'll send you instructions to reset your password.</p>
+                    </div>
+
+                    <form id="email-forgot-form">
+                        <div class="form-group">
+                            <label for="email-forgot-email">Email address</label>
+                            <input type="email" id="email-forgot-email" placeholder="you@example.com" required>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Send reset instructions</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p><a href="#" onclick="showEmailForm('signin')">← Back to sign in</a></p>
+                    </div>
+                </div>
+
+                <!-- Reset Password Confirmation -->
+                <div id="email-reset-confirm" class="auth-form">
+                    <div class="form-header">
+                        <h2>Enter new password</h2>
+                        <p>Enter the code from your email and your new password</p>
+                    </div>
+
+                    <form id="email-reset-form">
+                        <div class="form-group">
+                            <label for="email-reset-code">Verification code</label>
+                            <input type="text" id="email-reset-code" placeholder="Enter code from email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email-new-password">New password</label>
+                            <div class="password-input">
+                                <input type="password" id="email-new-password" placeholder="••••••••" required>
+                                <button type="button" class="toggle-password" onclick="togglePassword('email-new-password')">👁</button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Reset password</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p><a href="#" onclick="showEmailForm('signin')">← Back to sign in</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phone Authentication Section -->
+        <div id="phone-auth" class="auth-section">
+            <div class="auth-container">
+                <!-- Phone Sign In -->
+                <div id="phone-signin" class="auth-form active">
+                    <div class="form-header">
+                        <h2>Sign in with phone</h2>
+                        <p>Enter your phone number to get started</p>
+                    </div>
+
+                    <form id="phone-signin-form">
+                        <div class="form-group">
+                            <label for="phone-signin-number">Phone number</label>
+                            <input type="tel" id="phone-signin-number" placeholder="+1 (555) 123-4567" required>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Send SMS code</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p>We'll send you a verification code via SMS</p>
+                    </div>
+                </div>
+
+                <!-- Phone Verification -->
+                <div id="phone-verify" class="auth-form">
+                    <div class="form-header">
+                        <h2>Enter verification code</h2>
+                        <p>We've sent a 6-digit code to <span id="phone-verify-number"></span></p>
+                    </div>
+
+                    <form id="phone-verify-form">
+                        <div class="form-group">
+                            <label for="phone-verification-code">Verification code</label>
+                            <input type="text" id="phone-verification-code" placeholder="123456" maxlength="6" required>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Verify & Sign in</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p>Didn't receive the code? <a href="#" onclick="resendPhoneCode()">Resend SMS</a></p>
+                        <p><a href="#" onclick="showPhoneForm('signin')">← Use different number</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success/Dashboard -->
+        <div id="dashboard" class="auth-section">
+            <div class="success-container">
+                <div class="success-content">
+                    <div class="success-icon">✅</div>
+                    <h2>Welcome!</h2>
+                    <p>You have successfully signed in.</p>
+                    <div class="user-info">
+                        <p><strong>User ID:</strong> <span id="user-id"></span></p>
+                        <p><strong>Email:</strong> <span id="user-email"></span></p>
+                        <p><strong>Phone:</strong> <span id="user-phone"></span></p>
+                    </div>
+                    <button onclick="signOut()" class="btn-secondary">Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config Section -->
+        <div class="config-section">
+            <details>
+                <summary>⚙️ API Configuration</summary>
+                <div class="config-form">
+                    <div class="form-group">
+                        <label for="api-url">API Base URL:</label>
+                        <input type="url" id="api-url" placeholder="https://your-api-id.execute-api.region.amazonaws.com/dev">
+                    </div>
+                    <button onclick="saveConfig()" class="btn-secondary">Save Config</button>
+                </div>
+            </details>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="status-message" class="status-message"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/email-auth.js"></script>
+    <script src="js/phone-auth.js"></script>
+</body>
+</html>
