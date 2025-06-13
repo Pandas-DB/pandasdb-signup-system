@@ -94,27 +94,6 @@ class AuthAPI {
 const authAPI = new AuthAPI();
 
 // UI utility functions
-function switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.getElementById(`${tabName}-tab`).classList.add('active');
-
-    // Update auth sections
-    document.querySelectorAll('.auth-section').forEach(section => {
-        section.classList.remove('active');
-    });
-    document.getElementById(`${tabName}-auth`).classList.add('active');
-
-    // Reset forms in the new section
-    if (tabName === 'email') {
-        showEmailForm('signin');
-    } else if (tabName === 'phone') {
-        showPhoneForm('signin');
-    }
-}
-
 function showStatusMessage(message, type = 'info') {
     const statusEl = document.getElementById('status-message');
     statusEl.textContent = message;
@@ -173,9 +152,19 @@ function signOut() {
     // Reset all forms
     document.querySelectorAll('form').forEach(form => form.reset());
     
-    // Show sign in form
-    switchTab('email');
-    showEmailForm('signin');
+    // Show appropriate sign in form based on page
+    if (typeof showEmailForm === 'function') {
+        showEmailForm('signin');
+    } else if (typeof showPhoneForm === 'function') {
+        showPhoneForm('signin');
+    }
+    
+    // Hide dashboard and show auth section
+    document.getElementById('dashboard').classList.remove('active');
+    const authSection = document.querySelector('.auth-section:first-of-type');
+    if (authSection) {
+        authSection.classList.add('active');
+    }
     
     showStatusMessage('Signed out successfully', 'success');
 }
@@ -191,8 +180,16 @@ function showDashboard(userInfo = {}) {
     
     // Update user info
     document.getElementById('user-id').textContent = userInfo.userSub || userInfo.sub || 'N/A';
-    document.getElementById('user-email').textContent = userInfo.email || 'N/A';
-    document.getElementById('user-phone').textContent = userInfo.phone_number || 'N/A';
+    
+    const emailEl = document.getElementById('user-email');
+    if (emailEl) {
+        emailEl.textContent = userInfo.email || 'N/A';
+    }
+    
+    const phoneEl = document.getElementById('user-phone');
+    if (phoneEl) {
+        phoneEl.textContent = userInfo.phone_number || 'N/A';
+    }
     
     authAPI.setCurrentUser(userInfo);
 }

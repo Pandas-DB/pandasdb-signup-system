@@ -255,22 +255,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-// Clear phone auth state when switching tabs
-document.addEventListener('DOMContentLoaded', function() {
-    // Listen for tab changes
-    const originalSwitchTab = window.switchTab;
-    window.switchTab = function(tabName) {
-        // Clear phone auth state when switching away from phone tab
-        if (tabName !== 'phone') {
-            phoneAuthState.currentPhone = '';
-            phoneAuthState.currentSession = '';
-            phoneAuthState.pendingVerification = false;
-        }
-        
-        // Call original function
-        if (originalSwitchTab) {
-            originalSwitchTab(tabName);
-        }
-    };
-});

@@ -1,0 +1,130 @@
+service: pandasdb-signup-system-email
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: eu-west-1
+  environment:
+    USER_POOL_ID: !Ref CognitoUserPool
+    USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+    AUTH_TYPE: email
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:AdminInitiateAuth
+        - cognito-idp:AdminCreateUser
+        - cognito-idp:AdminSetUserPassword
+        - cognito-idp:RespondToAuthChallenge
+      Resource: !GetAtt CognitoUserPool.Arn
+
+plugins:
+  - serverless-esbuild
+
+custom:
+  esbuild:
+    bundle: true
+    minify: true
+
+functions:
+  signUp:
+    handler: src/handlers/email-auth.signUp
+    events:
+      - http:
+          path: auth/signup
+          method: post
+          cors: true
+
+  signIn:
+    handler: src/handlers/email-auth.signIn
+    events:
+      - http:
+          path: auth/signin
+          method: post
+          cors: true
+
+  confirmSignUp:
+    handler: src/handlers/email-auth.confirmSignUp
+    events:
+      - http:
+          path: auth/confirm
+          method: post
+          cors: true
+
+  resendConfirmationCode:
+    handler: src/handlers/email-auth.resendConfirmationCode
+    events:
+      - http:
+          path: auth/resend
+          method: post
+          cors: true
+
+  forgotPassword:
+    handler: src/handlers/email-auth.forgotPassword
+    events:
+      - http:
+          path: auth/forgot-password
+          method: post
+          cors: true
+
+  confirmForgotPassword:
+    handler: src/handlers/email-auth.confirmForgotPassword
+    events:
+      - http:
+          path: auth/confirm-forgot-password
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-user-pool
+        AliasAttributes: [email]
+        AutoVerifiedAttributes: [email]
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+        MfaConfiguration: OFF
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Name: verified_email
+              Priority: 1
+        UsernameConfiguration:
+          CaseSensitive: false
+        EmailConfiguration:
+          EmailSendingAccount: COGNITO_DEFAULT
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-client
+        UserPoolId: !Ref CognitoUserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+        GenerateSecret: false
+        PreventUserExistenceErrors: ENABLED
+
+  Outputs:
+    UserPoolId:
+      Value: !Ref CognitoUserPool
+      Export:
+        Name: ${self:service}-user-pool-id
+    
+    UserPoolClientId:
+      Value: !Ref CognitoUserPoolClient
+      Export:
+        Name: ${self:service}-user-pool-client-id
+
+    AuthType:
+      Value: email
+      Export:
+        Name: ${self:service}-auth-type

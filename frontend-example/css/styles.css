@@ -32,38 +32,14 @@ header h1 {
     color: white;
     font-size: 2.5rem;
     font-weight: 700;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
-nav {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
+.subtitle {
+    color: rgba(255,255,255,0.9);
+    font-size: 1.1rem;
     margin-bottom: 1rem;
-}
-
-.tab-button {
-    padding: 12px 24px;
-    border: 2px solid rgba(255,255,255,0.3);
-    background: rgba(255,255,255,0.1);
-    color: white;
-    border-radius: 25px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-}
-
-.tab-button:hover {
-    background: rgba(255,255,255,0.2);
-    transform: translateY(-2px);
-}
-
-.tab-button.active {
-    background: white;
-    color: #667eea;
-    border-color: white;
 }
 
 /* Auth sections */
@@ -145,6 +121,20 @@ input:focus {
 
 input::placeholder {
     color: #999;
+}
+
+.help-text {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: #666;
+    font-style: italic;
+}
+
+.privacy-note {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: 0.5rem;
 }
 
 .password-input {
@@ -391,11 +381,6 @@ input::placeholder {
     
     header h1 {
         font-size: 2rem;
-    }
-    
-    nav {
-        flex-direction: column;
-        align-items: center;
     }
     
     .auth-container {

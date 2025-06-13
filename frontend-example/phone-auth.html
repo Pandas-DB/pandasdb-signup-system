@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Authentication - Signup System</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Phone Authentication</h1>
+            <p class="subtitle">Passwordless SMS-based authentication system</p>
+        </header>
+
+        <!-- Phone Authentication Section -->
+        <div id="phone-auth" class="auth-section active">
+            <div class="auth-container">
+                <!-- Phone Sign In -->
+                <div id="phone-signin" class="auth-form active">
+                    <div class="form-header">
+                        <h2>Sign in with phone</h2>
+                        <p>Enter your phone number to get started</p>
+                    </div>
+
+                    <form id="phone-signin-form">
+                        <div class="form-group">
+                            <label for="phone-signin-number">Phone number</label>
+                            <input type="tel" id="phone-signin-number" placeholder="+1 (555) 123-4567" required>
+                            <small class="help-text">Use international format (e.g., +1 555 123 4567)</small>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Send SMS code</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p>We'll send you a verification code via SMS</p>
+                        <p class="privacy-note">Your phone number will be used only for authentication purposes</p>
+                    </div>
+                </div>
+
+                <!-- Phone Verification -->
+                <div id="phone-verify" class="auth-form">
+                    <div class="form-header">
+                        <h2>Enter verification code</h2>
+                        <p>We've sent a 6-digit code to <span id="phone-verify-number"></span></p>
+                    </div>
+
+                    <form id="phone-verify-form">
+                        <div class="form-group">
+                            <label for="phone-verification-code">Verification code</label>
+                            <input type="text" id="phone-verification-code" placeholder="123456" maxlength="6" required>
+                            <small class="help-text">Code will auto-submit when 6 digits are entered</small>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Verify & Sign in</button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p>Didn't receive the code? <a href="#" onclick="resendPhoneCode()">Resend SMS</a></p>
+                        <p><a href="#" onclick="showPhoneForm('signin')">← Use different number</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success/Dashboard -->
+        <div id="dashboard" class="auth-section">
+            <div class="success-container">
+                <div class="success-content">
+                    <div class="success-icon">📱</div>
+                    <h2>Welcome!</h2>
+                    <p>You have successfully signed in with phone authentication.</p>
+                    <div class="user-info">
+                        <p><strong>User ID:</strong> <span id="user-id"></span></p>
+                        <p><strong>Phone:</strong> <span id="user-phone"></span></p>
+                    </div>
+                    <button onclick="signOut()" class="btn-secondary">Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config Section -->
+        <div class="config-section">
+            <details>
+                <summary>⚙️ API Configuration</summary>
+                <div class="config-form">
+                    <div class="form-group">
+                        <label for="api-url">Phone API Base URL:</label>
+                        <input type="url" id="api-url" placeholder="https://your-phone-api-id.execute-api.region.amazonaws.com/dev">
+                    </div>
+                    <button onclick="saveConfig()" class="btn-secondary">Save Config</button>
+                </div>
+            </details>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="status-message" class="status-message"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/phone-auth.js"></script>
+</body>
+</html>

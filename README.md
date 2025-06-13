@@ -8,7 +8,8 @@ A serverless authentication backend built with AWS Lambda, API Gateway, and Cogn
 pandasdb-signup-system/
 ├── src/
 │   ├── handlers/
-│   │   └── auth.js              # Authentication handlers for both email and phone
+│   │   ├── email-auth.js        # Email authentication handlers
+│   │   └── phone-auth.js        # Phone authentication handlers
 │   └── triggers/
 │       └── auth.js              # Cognito Lambda triggers (for future custom auth)
 ├── frontend-example/            # Complete frontend testing interface
@@ -19,7 +20,8 @@ pandasdb-signup-system/
 │   │   ├── email-auth.js        # Email authentication flows
 │   │   └── phone-auth.js        # Phone authentication flows
 │   └── README.md                # Frontend documentation
-├── serverless.yml               # Serverless framework configuration
+├── serverless-email.yml         # Email authentication configuration
+├── serverless-phone.yml         # Phone authentication configuration
 ├── package.json                 # Dependencies and deployment scripts
 ├── README.md                    # This file
 ├── .gitignore                   # Git ignore rules
@@ -123,7 +125,7 @@ python -m http.server 8000
 ### **Environment Configuration**
 
 The system automatically configures based on deployment type:
-- **Region**: `eu-west-1` (configurable in serverless.yml)
+- **Region**: `eu-west-1` (configurable in serverless-email.yml or serverless-phone.yml)
 - **Auth Type**: Set via deployment command
 - **Cognito**: Automatically configured for chosen auth type
 
@@ -142,7 +144,7 @@ To switch from one authentication type to another:
 
 ```bash
 # Remove current system
-npm run remove
+npm run remove:email  # or npm run remove:phone
 
 # Deploy new system
 npm run deploy:phone  # or npm run deploy:email
@@ -202,17 +204,17 @@ npm run deploy:phone  # or npm run deploy:email
 
 ### **View Logs**
 ```bash
-npm run logs signUp
-npm run logs initiatePhoneAuth
+npm run logs:email signUp
+npm run logs:phone initiatePhoneAuth
 ```
 
 ### **Test Functions Locally**
 ```bash
-npm run invoke signUp -- --data '{"body": "{\"email\":\"test@example.com\",\"password\":\"Test123\"}"}'
+npm run invoke:email signUp -- --data '{"body": "{\"email\":\"test@example.com\",\"password\":\"Test123\"}"}'
 ```
 
 ### **Custom Configuration**
-Edit `serverless.yml` to customize:
+Edit `serverless-email.yml` or `serverless-phone.yml` to customize:
 - AWS region
 - Password policies
 - Function timeouts
@@ -245,16 +247,16 @@ Edit `serverless.yml` to customize:
 ### **Useful CloudWatch Queries**
 ```bash
 # View authentication errors
-aws logs filter-log-events --log-group-name /aws/lambda/pandasdb-signup-system-dev-signUp
+aws logs filter-log-events --log-group-name /aws/lambda/pandasdb-signup-system-email-dev-signUp
 
 # Monitor SMS delivery
-aws logs filter-log-events --log-group-name /aws/lambda/pandasdb-signup-system-dev-initiatePhoneAuth
+aws logs filter-log-events --log-group-name /aws/lambda/pandasdb-signup-system-phone-dev-initiatePhoneAuth
 ```
 
 ## 🧹 Cleanup
 
 ```bash
-npm run remove
+npm run remove:email  # or npm run remove:phone
 ```
 
 This removes all AWS resources created by the deployment.

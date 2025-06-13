@@ -165,8 +165,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            if (!confirmationCode || confirmationCode.length !== 6) {
-                showStatusMessage('Please enter the 6-digit verification code', 'error');
+            if (!confirmationCode) {
+                showStatusMessage('Please enter the verification code', 'error');
                 return;
             }
             
@@ -327,6 +327,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 showStatusMessage(`Password reset failed: ${error.message}`, 'error');
             } finally {
                 setButtonLoading('email-reset-form', false);
+            }
+        });
+    }
+});
+
+// Auto-focus and validation for verification codes
+document.addEventListener('DOMContentLoaded', function() {
+    const emailConfirmationInput = document.getElementById('email-confirmation-code');
+    if (emailConfirmationInput) {
+        emailConfirmationInput.addEventListener('input', function(e) {
+            // Only allow digits
+            e.target.value = e.target.value.replace(/\D/g, '');
+            
+            // Auto-submit when 6 digits entered
+            if (e.target.value.length === 6) {
+                setTimeout(() => {
+                    const form = document.getElementById('email-confirm-form');
+                    if (form) {
+                        form.dispatchEvent(new Event('submit'));
+                    }
+                }, 100);
             }
         });
     }

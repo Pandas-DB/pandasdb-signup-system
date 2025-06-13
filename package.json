@@ -4,12 +4,14 @@
   "description": "Serverless authentication backend with AWS Cognito",
   "main": "index.js",
   "scripts": {
-    "deploy": "AUTH_TYPE=email serverless deploy",
-    "deploy:email": "AUTH_TYPE=email serverless deploy",
-    "deploy:phone": "AUTH_TYPE=phone serverless deploy",
-    "remove": "serverless remove",
-    "logs": "serverless logs -f",
-    "invoke": "serverless invoke -f"
+    "deploy:email": "serverless deploy --config serverless-email.yml",
+    "deploy:phone": "serverless deploy --config serverless-phone.yml",
+    "remove:email": "serverless remove --config serverless-email.yml",
+    "remove:phone": "serverless remove --config serverless-phone.yml",
+    "logs:email": "serverless logs --config serverless-email.yml -f",
+    "logs:phone": "serverless logs --config serverless-phone.yml -f",
+    "invoke:email": "serverless invoke --config serverless-email.yml -f",
+    "invoke:phone": "serverless invoke --config serverless-phone.yml -f"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.410.0",

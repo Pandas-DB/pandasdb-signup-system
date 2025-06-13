@@ -1,0 +1,135 @@
+service: pandasdb-signup-system-phone
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: eu-west-1
+  environment:
+    USER_POOL_ID: !Ref CognitoUserPool
+    USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+    AUTH_TYPE: phone
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:AdminInitiateAuth
+        - cognito-idp:AdminCreateUser
+        - cognito-idp:AdminSetUserPassword
+        - cognito-idp:RespondToAuthChallenge
+      Resource: !GetAtt CognitoUserPool.Arn
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: "*"
+
+plugins:
+  - serverless-esbuild
+
+custom:
+  esbuild:
+    bundle: true
+    minify: true
+
+functions:
+  initiatePhoneAuth:
+    handler: src/handlers/phone-auth.initiatePhoneAuth
+    events:
+      - http:
+          path: auth/phone/initiate
+          method: post
+          cors: true
+
+  confirmPhoneAuth:
+    handler: src/handlers/phone-auth.confirmPhoneAuth
+    events:
+      - http:
+          path: auth/phone/confirm
+          method: post
+          cors: true
+
+  resendPhoneCode:
+    handler: src/handlers/phone-auth.resendPhoneCode
+    events:
+      - http:
+          path: auth/phone/resend
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    CognitoSNSRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: cognito-idp.amazonaws.com
+              Action: sts:AssumeRole
+              Condition:
+                StringEquals:
+                  sts:ExternalId: ${self:service}-external-id
+        Policies:
+          - PolicyName: CognitoSNSPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sns:Publish
+                  Resource: "*"
+
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-user-pool
+        UsernameAttributes: [phone_number]
+        AutoVerifiedAttributes: [phone_number]
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+        MfaConfiguration: OFF
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Name: verified_phone_number
+              Priority: 1
+        UsernameConfiguration:
+          CaseSensitive: false
+        SmsConfiguration:
+          SnsCallerArn: !GetAtt CognitoSNSRole.Arn
+          ExternalId: ${self:service}-external-id
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-client
+        UserPoolId: !Ref CognitoUserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_CUSTOM_AUTH
+        GenerateSecret: false
+        PreventUserExistenceErrors: ENABLED
+
+  Outputs:
+    UserPoolId:
+      Value: !Ref CognitoUserPool
+      Export:
+        Name: ${self:service}-user-pool-id
+    
+    UserPoolClientId:
+      Value: !Ref CognitoUserPoolClient
+      Export:
+        Name: ${self:service}-user-pool-client-id
+
+    AuthType:
+      Value: phone
+      Export:
+        Name: ${self:service}-auth-type
