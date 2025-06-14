@@ -303,6 +303,19 @@ const initiatePhoneAuth = async (phoneNumber) => {
 - Guest checkout processes
 - Modern consumer apps
 
+## Future Work
+
+- Social login
+- Sign up & Sign in Captcha
+
+### **Phone Authentication Best For:**
+- Mobile applications
+- Quick onboarding flows
+- International users
+- Guest checkout processes
+- Modern consumer apps
+
+
 ## 📞 Support
 
 - **Documentation**: Check this README and frontend-example/README.md
